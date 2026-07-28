@@ -1,6 +1,6 @@
 import DEFAULT_BEADS from './lib/beads.js';
-import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=75';
-import { generateDesigns } from './lib/designer.js?v=80';
+import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=81';
+import { generateDesigns } from './lib/designer.js?v=81';
 import { hydrateSavedDesigns } from './lib/saved-designs.js';
 
 const STORAGE_KEY = 'bead-studio-saved-v2';
