@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="输入一个灵感主题，生成三种珠串设计方案。">
+  <title>珠串灵感生成器</title>
+  <link rel="stylesheet" href="./simple.css?v=75">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" id="home-link" href="#inspiration" aria-label="返回灵感生成">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span><strong>珠串灵感生成器</strong><small>AI 主题配珠</small></span>
+    </a>
+    <nav class="tabs" aria-label="主导航">
+      <button class="tab active" type="button" data-page="inspiration">灵感生成</button>
+      <button class="tab" type="button" data-page="library">珠子库</button>
+      <button class="tab" type="button" data-page="saved">方案库</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page" id="page-inspiration">
+      <div class="simple-hero">
+<form class="theme-form" id="theme-form">
+          <div class="form-topline"><label for="theme-input">描述你的灵感</label></div>
+          <div class="theme-input-shell">
+            <textarea id="theme-input" name="theme" maxlength="120" rows="3" autocomplete="off" placeholder="比如：雨后的森林、竹林月色、奶油蘑菇…" required></textarea>
+            <label class="wrist-size-control" for="wrist-size"><span>手围</span><select id="wrist-size" name="wristSize" aria-label="选择成品手围"><option value="14">14cm</option><option value="15">15cm</option><option value="16" selected>16cm</option><option value="17">17cm</option><option value="18">18cm</option></select></label>
+          </div>
+          <div class="quick-themes" aria-label="示例主题">
+            <button type="button" data-theme="雨后的森林"><span aria-hidden="true">🌿</span>雨后的森林</button>
+            <button type="button" data-theme="清晨的光线"><span aria-hidden="true">🌤️</span>清晨的光线</button>
+            <button type="button" data-theme="复古波西米亚"><span aria-hidden="true">🌺</span>复古波西米亚</button>
+            <button type="button" data-theme="深海秘境"><span aria-hidden="true">🌊</span>深海秘境</button>
+          </div>
+          <button class="primary-button" id="generate-button" type="submit">生成 3 个方案</button>
+          <p class="status" id="generation-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <section class="results hidden" id="results" aria-label="生成方案">
+        <div class="scheme-grid" id="scheme-grid"></div>
+      </section>
+    </section>
+
+    <section class="page hidden" id="page-library">
+      <div class="section-heading">
+        <div><h1>珠子库</h1><p>按颜色、材质、形状与尺寸筛选</p></div>
+      </div>
+      <div class="filters">
+        <input id="library-search" type="search" placeholder="🔍  搜索颜色、名称或材质..." aria-label="搜索珠子">
+        <select id="shape-filter" aria-label="按形状筛选">
+          <option value="">全部形状</option>
+          <optgroup label="主珠类型"><option value="圆珠">圆珠</option><option value="米珠">米珠</option><option value="方形珠">方形珠</option><option value="菱形珠">菱形珠</option><option value="扁圆珠">扁圆珠</option><option value="管珠">管珠</option><option value="隔珠">隔珠</option></optgroup>
+        </select>
+        <select id="material-filter" aria-label="按材质筛选"><option value="">全部材质</option></select>
+        <select id="size-filter" aria-label="按尺寸筛选"><option value="">全部尺寸</option><option value="2">2mm</option><option value="3">3mm</option><option value="4">4mm</option><option value="5">5mm</option><option value="6">6mm</option><option value="7">7mm</option><option value="8">8mm</option><option value="10">10mm</option><option value="12">12mm</option></select>
+        <button class="add-bead-button" id="add-bead-button" type="button"><span aria-hidden="true">＋</span> 添加珠子</button>
+        <button class="text-button library-restore hidden" id="restore-default-beads" type="button">恢复默认珠子</button>
+        <span class="library-count" id="library-count" aria-live="polite"></span>
+      </div>
+      <div class="bead-grid" id="bead-grid"></div>
+      <p class="empty-state hidden" id="library-empty">没有符合条件的珠子。<button class="text-button" id="reset-filters" type="button">清除筛选</button></p>
+    </section>
+
+    <section class="page hidden" id="page-saved">
+      <div class="section-heading saved-heading">
+        <div><h1>方案库</h1><p>你收藏的珠串设计</p></div>
+        <button class="text-button hidden" id="clear-saved" type="button">清空方案</button>
+      </div>
+      <div class="scheme-grid" id="saved-grid"></div>
+      <p class="empty-state" id="saved-empty">还没有收藏方案</p>
+    </section>
+  </main>
+
+  <dialog class="bead-dialog" id="bead-dialog" aria-labelledby="bead-dialog-title">
+    <form class="add-bead-form" id="add-bead-form" method="dialog">
+      <div class="dialog-heading">
+        <div><p id="bead-dialog-mode">MY BEAD</p><h2 id="bead-dialog-title">添加一颗珠子</h2></div>
+        <button class="dialog-close" id="cancel-add-bead" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="form-grid">
+        <label class="field-wide">珠子名称（可选）<input name="name" maxlength="20" placeholder="留空将按颜色、材质和形状自动命名"></label>
+        <label>颜色<span class="color-field"><input name="color" type="color" value="#E9E5DE"><span>选择颜色</span></span></label>
+        <label>尺寸<select name="size" required><option value="2">2mm</option><option value="3">3mm</option><option value="4" selected>4mm</option><option value="5">5mm</option><option value="6">6mm</option><option value="7">7mm</option><option value="8">8mm</option><option value="10">10mm</option><option value="12">12mm</option></select></label>
+        <label>形状<select name="shape" required><option>圆珠</option><option>米珠</option><option>方形珠</option><option>菱形珠</option><option>扁圆珠</option><option>管珠</option><option>隔珠</option></select></label>
+        <fieldset class="material-picker field-wide"><legend>材质</legend><div class="material-choice-grid" id="material-options"></div></fieldset>
+        <label>库存（颗）<input name="count" type="number" min="0" max="9999" value="50"></label>
+      </div>
+      <p class="dialog-note">色系会根据颜色自动判断；珠子保存在当前浏览器，库存为 0 时不会参与方案生成。</p>
+      <button class="primary-button dialog-submit" id="bead-dialog-submit" type="submit">保存到珠子库</button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js?v=80"></script>
+</body>
+</html>
