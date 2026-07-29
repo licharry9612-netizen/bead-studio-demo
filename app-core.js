@@ -10,6 +10,11 @@ const THEME_ANALYSIS_ENDPOINT = window.location.hostname.endsWith('.github.io')
 const STORAGE_KEY = 'bead-studio-saved-v2';
 const CUSTOM_BEADS_KEY = 'bead-studio-custom-beads-v1';
 const DELETED_BEADS_KEY = 'bead-studio-deleted-beads-v1';
+const AI_USAGE_KEY = 'bead-studio-ai-usage-v1';
+const AI_CACHE_KEY = 'bead-studio-theme-cache-v1';
+const LIBRARY_MODE_KEY = 'bead-studio-library-mode-v1';
+const AI_DAILY_LIMIT = 2;
+const AI_CACHE_LIMIT = 24;
 const MATERIAL_ORDER = ['水晶', '玛瑙', '琉璃', '珍珠', '金属', '天然石', '贝壳', '陶瓷', '木质'];
 const MATERIAL_OPTIONS = MATERIAL_ORDER.filter(material => DEFAULT_BEADS.some(bead => bead.material === material));
 const customBeads = readCustomBeads();
@@ -55,7 +60,11 @@ const elements = {
   libraryEmpty: document.querySelector('#library-empty'),
   resetFilters: document.querySelector('#reset-filters'),
   restoreDefaultBeads: document.querySelector('#restore-default-beads'),
-  clearSaved: document.querySelector('#clear-saved')
+  clearSaved: document.querySelector('#clear-saved'),
+  aiQuotaNote: document.querySelector('#ai-quota-note'),
+  importLibraryButton: document.querySelector('#import-library-button'),
+  importLibraryInput: document.querySelector('#import-library-input'),
+  exportLibraryButton: document.querySelector('#export-library-button')
 };
 
 function escapeHtml(value) {
@@ -129,7 +138,62 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => elements.toast.classList.remove('show'), 2400);
 }
 
+function localDayKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+}
+
+function readAiUsage() {
+  try {
+    const value = JSON.parse(localStorage.getItem(AI_USAGE_KEY) ?? '{}');
+    return value?.day === localDayKey() ? Math.max(0, Number(value.count) || 0) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function remainingAiUses() {
+  return Math.max(0, AI_DAILY_LIMIT - readAiUsage());
+}
+
+function updateAiQuotaNote() {
+  const remaining = remainingAiUses();
+  elements.aiQuotaNote.textContent = remaining
+    ? `今日还可使用 ${remaining} 次 AI 理解 · 超出后本地生成`
+    : '今日 AI 理解次数已用完 · 继续使用本地生成';
+}
+
+function consumeAiUse() {
+  const nextCount = readAiUsage() + 1;
+  localStorage.setItem(AI_USAGE_KEY, JSON.stringify({ day: localDayKey(), count: nextCount }));
+  updateAiQuotaNote();
+}
+
+function themeCacheKey(rawTheme) {
+  return rawTheme.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function readThemeCache() {
+  try {
+    const value = JSON.parse(localStorage.getItem(AI_CACHE_KEY) ?? '{}');
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function cacheThemeAnalysis(rawTheme, theme) {
+  const cache = readThemeCache();
+  cache[themeCacheKey(rawTheme)] = { theme, savedAt: Date.now() };
+  const trimmed = Object.fromEntries(Object.entries(cache).sort((left, right) => right[1].savedAt - left[1].savedAt).slice(0, AI_CACHE_LIMIT));
+  localStorage.setItem(AI_CACHE_KEY, JSON.stringify(trimmed));
+}
+
 async function requestThemeAnalysis(rawTheme) {
+  const cached = readThemeCache()[themeCacheKey(rawTheme)]?.theme;
+  if (cached) return normalizeTheme(cached, rawTheme);
+  if (remainingAiUses() <= 0) throw Object.assign(new Error('ai_daily_limit'), { code: 'ai_daily_limit' });
+  consumeAiUse();
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 30_000);
   try {
@@ -141,7 +205,9 @@ async function requestThemeAnalysis(rawTheme) {
     });
     if (!response.ok) throw new Error(`theme_service_${response.status}`);
     const data = await response.json();
-    return normalizeTheme(data?.theme, rawTheme);
+    const normalized = normalizeTheme(data?.theme, rawTheme);
+    cacheThemeAnalysis(rawTheme, normalized);
+    return normalized;
   } finally {
     window.clearTimeout(timeout);
   }
@@ -412,6 +478,7 @@ async function generate(rawTheme) {
       theme = await requestThemeAnalysis(rawTheme);
     } catch (error) {
       console.info('AI theme analysis unavailable; local semantic fallback used', { type: error?.name ?? 'request_error' });
+      if (error?.code === 'ai_daily_limit') showToast('今日 AI 理解次数已用完，本次使用本地生成');
       theme = createLocalTheme(rawTheme);
     }
     elements.button.textContent = '筛选候选中…';
@@ -491,6 +558,14 @@ function inferColorFamily(hex) {
 
 const FAMILY_NAMES = { '白/米': '雾白', '金/黄': '暖金', '灰/黑': '烟灰', '粉/红': '柔粉', '绿': '青绿', '蓝': '雾蓝', '紫': '暮紫', '橙/棕': '暖棕' };
 
+function suitableRolesFor(shape, size) {
+  if (shape === '管珠') return ['secondary', 'accent'];
+  if (size <= 2) return ['accent'];
+  if (size <= 4) return ['main', 'secondary', 'accent'];
+  if (size <= 6) return ['main', 'secondary', 'focal'];
+  return ['focal'];
+}
+
 function buildCustomBead(form, existingId = null) {
   const data = new FormData(form);
   const shape = String(data.get('shape'));
@@ -498,12 +573,8 @@ function buildCustomBead(form, existingId = null) {
   const size = Number(data.get('size'));
   const color = String(data.get('color')).toUpperCase();
   const family = inferColorFamily(color);
-  const suitableRoles = shape === '管珠'
-      ? ['secondary', 'accent']
-      : size <= 2 ? ['accent']
-        : size <= 3 ? ['main', 'secondary', 'accent']
-          : size <= 4 ? ['main', 'secondary', 'accent']
-            : size <= 6 ? ['main', 'secondary', 'focal'] : ['focal'];
+  const suitableRoles = suitableRolesFor(shape, size);
+
   const { saturation } = colorMetrics(color);
   return {
     id: existingId ?? `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` ,
@@ -514,6 +585,61 @@ function buildCustomBead(form, existingId = null) {
     temperature: ['金/黄', '粉/红', '橙/棕'].includes(family) ? 'warm' : ['蓝', '紫'].includes(family) ? 'cool' : 'neutral',
     saturation, visualWeight: Math.min(0.78, Math.max(0.12, size / 11)), suitableRoles
   };
+}
+
+function normalizeImportedBead(value, index) {
+  const shapes = ['圆珠', '米珠', '方形珠', '菱形珠', '扁圆珠', '管珠'];
+  const sizes = [2, 3, 4, 5, 6, 7, 8, 10, 12];
+  const color = String(value?.color ?? '').toUpperCase();
+  const size = Number(value?.size);
+  const shape = String(value?.shape ?? '');
+  const material = String(value?.material ?? '');
+  if (!/^#[0-9A-F]{6}$/.test(color) || !sizes.includes(size) || !shapes.includes(shape) || !MATERIAL_OPTIONS.includes(material)) return null;
+  const family = inferColorFamily(color);
+  const { saturation } = colorMetrics(color);
+  return {
+    id: `custom-import-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+    name: String(value?.name ?? '').trim().slice(0, 20) || `${FAMILY_NAMES[family]}${material}${shape}`,
+    color, size, shape, family, material,
+    count: Math.max(0, Math.min(9999, Number(value?.count) || 0)),
+    transparency: ({ '水晶': 0.58, '琉璃': 0.35, '珍珠': 0.06, '贝壳': 0.06, '陶瓷': 0.02, '木质': 0.01 })[material] ?? 0.03,
+    gloss: ({ '金属': 0.82, '水晶': 0.72, '珍珠': 0.66, '贝壳': 0.58, '陶瓷': 0.4, '木质': 0.22 })[material] ?? 0.38,
+    temperature: ['金/黄', '粉/红', '橙/棕'].includes(family) ? 'warm' : ['蓝', '紫'].includes(family) ? 'cool' : 'neutral',
+    saturation, visualWeight: Math.min(0.78, Math.max(0.12, size / 11)), suitableRoles: suitableRolesFor(shape, size)
+  };
+}
+
+function exportLibrary() {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    beads: state.library.map(({ name, color, size, shape, material, count }) => ({ name, color, size, shape, material, count }))
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `珠子库-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast(`已导出 ${payload.beads.length} 种珠子`);
+}
+
+async function importLibrary(file) {
+  const payload = JSON.parse(await file.text());
+  const source = Array.isArray(payload) ? payload : payload?.beads;
+  if (!Array.isArray(source) || !source.length || source.length > 500) throw new Error('invalid_library');
+  const imported = source.map(normalizeImportedBead).filter(Boolean);
+  if (!imported.length) throw new Error('empty_library');
+  if (!window.confirm(`导入会用 ${imported.length} 种珠子替换当前珠子库，是否继续？`)) return;
+  state.customBeads = imported;
+  state.deletedBeadIds = new Set(DEFAULT_BEADS.map(bead => bead.id));
+  state.library = [...imported];
+  localStorage.setItem(LIBRARY_MODE_KEY, 'imported');
+  persistCustomBeads();
+  persistDeletedBeads();
+  renderLibrary();
+  showToast(`已导入 ${imported.length} 种珠子`);
 }
 
 function closeBeadDialog() {
@@ -563,12 +689,20 @@ function deleteBead(beadId) {
 }
 
 function restoreDefaultBeads() {
-  if (!state.deletedBeadIds.size || !window.confirm('恢复此前删除的全部默认珠子吗？')) return;
+  const importedMode = localStorage.getItem(LIBRARY_MODE_KEY) === 'imported';
+  if (!state.deletedBeadIds.size && !importedMode) return;
+  const message = importedMode ? '恢复默认珠子库会移除当前导入的珠子，是否继续？' : '恢复此前删除的全部默认珠子吗？';
+  if (!window.confirm(message)) return;
   state.deletedBeadIds.clear();
+  if (importedMode) {
+    state.customBeads = [];
+    persistCustomBeads();
+    localStorage.removeItem(LIBRARY_MODE_KEY);
+  }
   persistDeletedBeads();
   state.library = [...DEFAULT_BEADS, ...state.customBeads];
   renderLibrary();
-  showToast('已恢复默认珠子');
+  showToast('已恢复默认珠子库');
 }
 
 function resetLibraryFilters() {
@@ -658,6 +792,18 @@ elements.shapeFilter.addEventListener('change', renderLibrary);
 elements.sizeFilter.addEventListener('change', renderLibrary);
 elements.resetFilters.addEventListener('click', resetLibraryFilters);
 elements.restoreDefaultBeads.addEventListener('click', restoreDefaultBeads);
+elements.exportLibraryButton.addEventListener('click', exportLibrary);
+elements.importLibraryButton.addEventListener('click', () => elements.importLibraryInput.click());
+elements.importLibraryInput.addEventListener('change', async () => {
+  const [file] = elements.importLibraryInput.files;
+  elements.importLibraryInput.value = '';
+  if (!file) return;
+  try { await importLibrary(file); }
+  catch (error) {
+    console.warn('Unable to import bead library', { type: error?.message ?? 'invalid_library' });
+    showToast('导入失败，请选择本应用导出的珠子库 JSON 文件');
+  }
+});
 elements.addBeadButton.addEventListener('click', openAddBeadDialog);
 elements.cancelAddBead.addEventListener('click', closeBeadDialog);
 elements.beadDialog.addEventListener('click', event => {
@@ -696,6 +842,7 @@ elements.clearSaved.addEventListener('click', () => {
 });
 
 renderMaterialControls();
+updateAiQuotaNote();
 renderLibrary();
 renderSaved();
 switchPage(window.location.hash.slice(1), false);
