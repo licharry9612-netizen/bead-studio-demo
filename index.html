@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="输入一个灵感主题，生成三种珠串设计方案。">
   <title>珠串灵感生成器</title>
-  <link rel="stylesheet" href="./simple.css?v=84">
+  <link rel="stylesheet" href="./simple.css?v=85">
 </head>
 <body>
   <header class="site-header">
@@ -24,7 +24,10 @@
     <section class="page" id="page-inspiration">
       <div class="simple-hero">
 <form class="theme-form" id="theme-form">
-          <div class="form-topline"><label for="theme-input">描述你的灵感</label></div>
+          <div class="form-topline">
+            <label for="theme-input">描述你的灵感</label>
+            <span class="ai-quota-note" id="ai-quota-note">每天 2 次 AI 理解 · 超出后本地生成</span>
+          </div>
           <div class="theme-input-shell">
             <textarea id="theme-input" name="theme" maxlength="120" rows="3" autocomplete="off" placeholder="比如：雨后的森林、竹林月色、奶油蘑菇…" required></textarea>
             <label class="wrist-size-control" for="wrist-size"><span>手围</span><select id="wrist-size" name="wristSize" aria-label="选择成品手围"><option value="14">14cm</option><option value="15">15cm</option><option value="16" selected>16cm</option><option value="17">17cm</option><option value="18">18cm</option></select></label>
@@ -58,6 +61,9 @@
         <select id="material-filter" aria-label="按材质筛选"><option value="">全部材质</option></select>
         <select id="size-filter" aria-label="按尺寸筛选"><option value="">全部尺寸</option><option value="2">2mm</option><option value="3">3mm</option><option value="4">4mm</option><option value="5">5mm</option><option value="6">6mm</option><option value="7">7mm</option><option value="8">8mm</option><option value="10">10mm</option><option value="12">12mm</option></select>
         <button class="add-bead-button" id="add-bead-button" type="button"><span aria-hidden="true">＋</span> 添加珠子</button>
+        <input class="hidden" id="import-library-input" type="file" accept=".json,application/json">
+        <button class="text-button library-transfer" id="import-library-button" type="button">导入珠子库</button>
+        <button class="text-button library-transfer" id="export-library-button" type="button">导出</button>
         <button class="text-button library-restore hidden" id="restore-default-beads" type="button">恢复默认珠子</button>
         <span class="library-count" id="library-count" aria-live="polite"></span>
       </div>
@@ -95,6 +101,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=84"></script>
+  <script type="module" src="./app.js?v=85"></script>
 </body>
 </html>
