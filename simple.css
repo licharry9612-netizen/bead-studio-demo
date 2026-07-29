@@ -211,12 +211,18 @@ main { width: min(1120px, calc(100vw - 40px)); margin: 0 auto; padding: 42px 0 8
 .bracelet-bead { filter: none; }
 .scheme-card .card-meta { margin-bottom: 0; }
 
-.form-topline { margin-bottom: 11px; }
+.form-topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
+.ai-quota-note { color: var(--muted); font-size: .68rem; font-weight: 450; white-space: nowrap; }
+.library-transfer { flex: 0 0 auto; height: 50px; padding-inline: 13px; white-space: nowrap; }
 .form-topline > label:first-child { margin: 0; }
 .theme-input-shell { position: relative; }
 .theme-form .wrist-size-control { position: absolute; right: 13px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; height: 34px; margin: 0; padding: 0 5px 0 11px; border: 1px solid rgba(148,135,125,.2); border-radius: 999px; color: #948780; background: rgba(250,248,245,.94); box-shadow: 0 2px 8px rgba(73,62,54,.045); font-size: .68rem; font-weight: 550; white-space: nowrap; backdrop-filter: blur(6px); }
 .wrist-size-control select { min-width: 62px; height: 27px; padding: 0 6px; border: 0; border-radius: 999px; outline: 0; color: var(--text); background: #fff; font-size: .72rem; cursor: pointer; }
 .wrist-size-control:focus-within { border-color: #a9988a; box-shadow: 0 0 0 3px rgba(112,94,81,.08); }
-@media (max-width: 760px) { .quick-themes { flex-wrap: wrap; } }
+@media (max-width: 760px) {
+  .quick-themes { flex-wrap: wrap; }
+  .form-topline { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .ai-quota-note { white-space: normal; }
+}
 
 .bead-preview-svg { display: block; width: 84px; height: 84px; overflow: visible; }
