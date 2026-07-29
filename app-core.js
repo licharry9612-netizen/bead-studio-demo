@@ -1,6 +1,6 @@
-import DEFAULT_BEADS from './lib/beads.js?v=83';
-import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=83';
-import { generateDesigns } from './lib/designer.js?v=83';
+import DEFAULT_BEADS from './lib/beads.js?v=84';
+import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=84';
+import { generateDesigns } from './lib/designer.js?v=84';
 import { hydrateSavedDesigns } from './lib/saved-designs.js';
 
 const THEME_ANALYSIS_ENDPOINT = window.location.hostname.endsWith('.github.io')
@@ -72,7 +72,7 @@ function renderMaterialControls() {
 function readCustomBeads() {
   try {
     const value = JSON.parse(localStorage.getItem(CUSTOM_BEADS_KEY) ?? '[]');
-    return Array.isArray(value) ? value.filter(item => item && item.id && item.name && item.color) : [];
+    return Array.isArray(value) ? value.filter(item => item && item.id && item.name && item.color && item.shape !== '隔珠' && !item.suitableRoles?.includes('spacer')) : [];
   } catch {
     return [];
   }
@@ -276,12 +276,6 @@ function materialDetails(bead, size, paintId) {
   }
   return `<ellipse cx="${-size * .1}" cy="${-size * .12}" rx="${size * .28}" ry="${size * .21}" fill="${soft}" fill-opacity=".46"/>`;
 }
-function braceletSpacerMarkup(size, attributes) {
-  const halfWidth = size * .29;
-  const halfHeight = size * .46;
-  const body = `M ${-halfWidth} ${-halfHeight * .78} C ${-halfWidth * .72} ${-halfHeight}, ${halfWidth * .72} ${-halfHeight}, ${halfWidth} ${-halfHeight * .78} L ${halfWidth} ${halfHeight * .78} C ${halfWidth * .72} ${halfHeight}, ${-halfWidth * .72} ${halfHeight}, ${-halfWidth} ${halfHeight * .78} Z`;
-  return `<path d="${body}" ${attributes}/><path d="M ${-halfWidth * .62} ${-halfHeight * .76} V ${halfHeight * .76} M ${halfWidth * .62} ${-halfHeight * .76} V ${halfHeight * .76}" fill="none" stroke="rgba(66,58,49,.3)" stroke-width="${Math.max(.45, size * .045)}"/><path d="M ${-halfWidth * .42} ${-halfHeight * .72} C 0 ${-halfHeight * .84}, ${halfWidth * .2} ${-halfHeight * .78}, ${halfWidth * .42} ${-halfHeight * .66}" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="${Math.max(.4, size * .035)}" stroke-linecap="round"/>`;
-}
 function beadMarkup(bead, size, paintId, shadowId) {
   const paint = `url(#${paintId})`;
   const isPale = beadBrightness(bead.color) >= 222;
@@ -308,7 +302,6 @@ function beadMarkup(bead, size, paintId, shadowId) {
   if (bead.shape === '管珠') return `<rect x="${-size * 0.68}" y="${-size * 0.28}" width="${size * 1.36}" height="${size * 0.56}" rx="${size * 0.16}" ${attributes}/>${detail}<path d="M ${-size * 0.5} ${-size * 0.18} V ${size * 0.18} M ${size * 0.5} ${-size * 0.18} V ${size * 0.18}" stroke="rgba(45,50,48,.18)" stroke-width="${Math.max(.55, size * .045)}"/>`;
   if (bead.shape === '方形珠') return `<rect x="${-size * 0.45}" y="${-size * 0.45}" width="${size * 0.9}" height="${size * 0.9}" rx="${size * 0.08}" ${attributes}/>${detail}`;
   if (bead.shape === '菱形珠') return `<rect x="${-size * 0.38}" y="${-size * 0.38}" width="${size * 0.76}" height="${size * 0.76}" rx="${size * 0.06}" transform="rotate(45)" ${attributes}/>${detail}`;
-  if (bead.shape === '隔珠') return braceletSpacerMarkup(size, attributes);
   return `<circle r="${size * 0.5}" ${attributes}/>${detail}`;
 }
 
@@ -327,7 +320,7 @@ export function renderBraceletSvg(pattern) {
   const materialDefs = uniqueBeads.map(bead => materialDefinition(bead, paintIds.get(bead.id))).join('');
   const shadowId = `${prefix}-contact-shadow`;
   const defs = `<defs>${materialDefs}<filter id="${shadowId}" x="-50%" y="-50%" width="200%" height="220%"><feDropShadow dx="0" dy="1.05" stdDeviation=".9" flood-color="#4B4742" flood-opacity=".14"/></filter></defs>`;
-  const longitudinalFactor = bead => ({ '管珠': 1.36, '米珠': 1.04, '扁圆珠': 1.08, '隔珠': 0.48, '菱形珠': 1.08, '方形珠': 0.9 }[bead.shape] ?? 1);
+  const longitudinalFactor = bead => ({ '管珠': 1.36, '米珠': 1.04, '扁圆珠': 1.08, '菱形珠': 1.08, '方形珠': 0.9 }[bead.shape] ?? 1);
   const physicalWidths = pattern.map(bead => bead.size * longitudinalFactor(bead));
   const availableForBeads = Math.max(1, arc.total - gap * pattern.length);
   const scale = Math.min(3.45, availableForBeads / physicalWidths.reduce((sum, value) => sum + value, 0));
@@ -453,30 +446,16 @@ async function generate(rawTheme) {
 
 const SHAPE_CLASSES = {
   '圆珠': 'round', '米珠': 'rice', '方形珠': 'square',
-  '菱形珠': 'diamond', '扁圆珠': 'flat', '管珠': 'tube', '隔珠': 'spacer'
+  '菱形珠': 'diamond', '扁圆珠': 'flat', '管珠': 'tube'
 };
 
-function librarySpacerMarkup(bead, size, paintId, shadowId) {
-  const outerRadius = size * .48;
-  const holeRadius = size * .18;
-  const reliefRadius = size * .335;
-  const emboss = Array.from({ length: 8 }, (_, index) => {
-    const angle = (Math.PI * 2 * index) / 8 - Math.PI / 2;
-    const x = Math.cos(angle) * reliefRadius;
-    const y = Math.sin(angle) * reliefRadius;
-    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${Math.max(1.05, size * .055)}" fill="url(#${paintId}-soft)" stroke="rgba(65,55,45,.24)" stroke-width="${Math.max(.45, size * .022)}"/>`;
-  }).join('');
-  return `<g filter="url(#${shadowId})"><circle r="${outerRadius}" fill="url(#${paintId})" stroke="rgba(63,54,46,.42)" stroke-width="${Math.max(.75, size * .04)}"/><circle r="${size * .405}" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="${Math.max(.55, size * .028)}"/><circle r="${reliefRadius}" fill="none" stroke="rgba(66,56,47,.3)" stroke-width="${Math.max(.55, size * .026)}" stroke-dasharray="${size * .1} ${size * .07}"/>${emboss}<circle r="${holeRadius * 1.34}" fill="url(#${paintId}-depth)" stroke="rgba(255,255,255,.35)" stroke-width="${Math.max(.7, size * .045)}"/><circle r="${holeRadius}" fill="rgba(38,40,38,.82)" stroke="rgba(48,42,37,.6)" stroke-width="${Math.max(.65, size * .035)}"/><path d="M ${-holeRadius * .72} ${-holeRadius * .46} A ${holeRadius * .84} ${holeRadius * .84} 0 0 1 ${holeRadius * .7} ${-holeRadius * .48}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="${Math.max(.55, size * .03)}" stroke-linecap="round"/></g>`;
-}
 function libraryBeadMarkup(bead) {
-  const size = bead.shape === '隔珠'
-    ? Math.max(42, Math.min(62, bead.size * 10))
-    : Math.max(28, Math.min(62, bead.size * 8));
+  const size = Math.max(28, Math.min(62, bead.size * 8));
   const prefix = `preview-${++svgRenderCounter}`;
   const paintId = `${prefix}-paint`;
   const shadowId = `${prefix}-shadow`;
   const defs = `<defs>${materialDefinition(bead, paintId)}<filter id="${shadowId}" x="-50%" y="-50%" width="200%" height="220%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.15" flood-color="#4B4742" flood-opacity=".16"/></filter></defs>`;
-  const preview = bead.shape === '隔珠' ? librarySpacerMarkup(bead, size, paintId, shadowId) : beadMarkup(bead, size, paintId, shadowId);
+  const preview = beadMarkup(bead, size, paintId, shadowId);
   return `<svg class="bead-preview-svg" viewBox="-42 -42 84 84" aria-hidden="true">${defs}<g>${preview}</g></svg>`;
 }
 
@@ -519,12 +498,10 @@ function buildCustomBead(form, existingId = null) {
   const size = Number(data.get('size'));
   const color = String(data.get('color')).toUpperCase();
   const family = inferColorFamily(color);
-  const suitableRoles = shape === '隔珠'
-    ? ['accent', 'spacer']
-    : shape === '管珠'
+  const suitableRoles = shape === '管珠'
       ? ['secondary', 'accent']
-      : size <= 2 ? ['accent', 'spacer']
-        : size <= 3 ? ['main', 'secondary', 'accent', 'spacer']
+      : size <= 2 ? ['accent']
+        : size <= 3 ? ['main', 'secondary', 'accent']
           : size <= 4 ? ['main', 'secondary', 'accent']
             : size <= 6 ? ['main', 'secondary', 'focal'] : ['focal'];
   const { saturation } = colorMetrics(color);
