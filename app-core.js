@@ -1,7 +1,11 @@
-import DEFAULT_BEADS from './lib/beads.js?v=82';
-import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=82';
-import { generateDesigns } from './lib/designer.js?v=82';
+import DEFAULT_BEADS from './lib/beads.js?v=83';
+import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=83';
+import { generateDesigns } from './lib/designer.js?v=83';
 import { hydrateSavedDesigns } from './lib/saved-designs.js';
+
+const THEME_ANALYSIS_ENDPOINT = window.location.hostname.endsWith('.github.io')
+  ? 'https://bead-studio-ai.vercel.app/api/analyze-theme'
+  : '/api/analyze-theme';
 
 const STORAGE_KEY = 'bead-studio-saved-v2';
 const CUSTOM_BEADS_KEY = 'bead-studio-custom-beads-v1';
@@ -129,7 +133,7 @@ async function requestThemeAnalysis(rawTheme) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 30_000);
   try {
-    const response = await fetch('/api/analyze-theme', {
+    const response = await fetch(THEME_ANALYSIS_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ theme: rawTheme }),
@@ -437,7 +441,7 @@ async function generate(rawTheme) {
     elements.status.textContent = '';
   } catch (error) {
     console.error('Design generation failed', { type: error?.name ?? 'generation_error' });
-    elements.status.textContent = '暂时无法生成方案，请稍后重试。';
+    elements.status.textContent = '未找到同时满足主题与结构的方案，请换一种描述或稍后重试。';
     showToast('生成失败，请稍后重试');
   } finally {
     elements.button.disabled = false;
