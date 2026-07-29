@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="输入一个灵感主题，生成三种珠串设计方案。">
   <title>珠串灵感生成器</title>
-  <link rel="stylesheet" href="./simple.css?v=85">
+  <link rel="stylesheet" href="./simple.css?v=88">
 </head>
 <body>
   <header class="site-header">
@@ -26,7 +26,7 @@
 <form class="theme-form" id="theme-form">
           <div class="form-topline">
             <label for="theme-input">描述你的灵感</label>
-            <span class="ai-quota-note" id="ai-quota-note">每天 2 次 AI 理解 · 超出后本地生成</span>
+            <span class="ai-quota-note" id="ai-quota-note">每天 5 次新主题 AI 理解 · 超出后本地生成</span>
           </div>
           <div class="theme-input-shell">
             <textarea id="theme-input" name="theme" maxlength="120" rows="3" autocomplete="off" placeholder="比如：雨后的森林、竹林月色、奶油蘑菇…" required></textarea>
@@ -64,7 +64,10 @@
         <input class="hidden" id="import-library-input" type="file" accept=".json,application/json">
         <button class="text-button library-transfer" id="import-library-button" type="button">导入珠子库</button>
         <button class="text-button library-transfer" id="export-library-button" type="button">导出</button>
-        <button class="text-button library-restore hidden" id="restore-default-beads" type="button">恢复默认珠子</button>
+        <button class="text-button library-manage" id="manage-library-button" type="button">批量管理</button>
+        <button class="text-button library-batch hidden" id="select-visible-beads" type="button">全选当前</button>
+        <button class="text-button library-batch library-batch-delete hidden" id="delete-selected-beads" type="button" disabled>删除已选</button>
+        <button class="text-button library-batch hidden" id="finish-library-manage" type="button">完成</button>
         <span class="library-count" id="library-count" aria-live="polite"></span>
       </div>
       <div class="bead-grid" id="bead-grid"></div>
@@ -101,6 +104,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=85"></script>
+  <script type="module" src="./app.js?v=88"></script>
 </body>
 </html>

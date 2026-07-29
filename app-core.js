@@ -1,6 +1,6 @@
 import DEFAULT_BEADS from './lib/beads.js?v=84';
 import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=84';
-import { generateDesigns } from './lib/designer.js?v=84';
+import { generateDesigns } from './lib/designer.js?v=88';
 import { hydrateSavedDesigns } from './lib/saved-designs.js';
 
 const THEME_ANALYSIS_ENDPOINT = window.location.hostname.endsWith('.github.io')
@@ -13,7 +13,7 @@ const DELETED_BEADS_KEY = 'bead-studio-deleted-beads-v1';
 const AI_USAGE_KEY = 'bead-studio-ai-usage-v1';
 const AI_CACHE_KEY = 'bead-studio-theme-cache-v1';
 const LIBRARY_MODE_KEY = 'bead-studio-library-mode-v1';
-const AI_DAILY_LIMIT = 2;
+const AI_DAILY_LIMIT = 5;
 const AI_CACHE_LIMIT = 24;
 const MATERIAL_ORDER = ['水晶', '玛瑙', '琉璃', '珍珠', '金属', '天然石', '贝壳', '陶瓷', '木质'];
 const MATERIAL_OPTIONS = MATERIAL_ORDER.filter(material => DEFAULT_BEADS.some(bead => bead.material === material));
@@ -28,7 +28,9 @@ const state = {
   generationCounter: 0,
   generationHistory: new Map(),
   saved: readSaved(),
-  editingBeadId: null
+  editingBeadId: null,
+  libraryManageMode: false,
+  selectedBeadIds: new Set()
 };
 
 const elements = {
@@ -59,7 +61,10 @@ const elements = {
   homeLink: document.querySelector('#home-link'),
   libraryEmpty: document.querySelector('#library-empty'),
   resetFilters: document.querySelector('#reset-filters'),
-  restoreDefaultBeads: document.querySelector('#restore-default-beads'),
+  manageLibraryButton: document.querySelector('#manage-library-button'),
+  selectVisibleBeads: document.querySelector('#select-visible-beads'),
+  deleteSelectedBeads: document.querySelector('#delete-selected-beads'),
+  finishLibraryManage: document.querySelector('#finish-library-manage'),
   clearSaved: document.querySelector('#clear-saved'),
   aiQuotaNote: document.querySelector('#ai-quota-note'),
   importLibraryButton: document.querySelector('#import-library-button'),
@@ -191,7 +196,7 @@ function cacheThemeAnalysis(rawTheme, theme) {
 
 async function requestThemeAnalysis(rawTheme) {
   const cached = readThemeCache()[themeCacheKey(rawTheme)]?.theme;
-  if (cached) return normalizeTheme(cached, rawTheme);
+  if (cached) return { theme: normalizeTheme(cached, rawTheme), source: 'cache' };
   if (remainingAiUses() <= 0) throw Object.assign(new Error('ai_daily_limit'), { code: 'ai_daily_limit' });
   consumeAiUse();
   const controller = new AbortController();
@@ -207,10 +212,17 @@ async function requestThemeAnalysis(rawTheme) {
     const data = await response.json();
     const normalized = normalizeTheme(data?.theme, rawTheme);
     cacheThemeAnalysis(rawTheme, normalized);
-    return normalized;
+    return { theme: normalized, source: 'ai' };
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+function understandingStatusText(source) {
+  if (source === 'ai') return `本次由 AI 理解主题 · 今日剩余 ${remainingAiUses()} 次`;
+  if (source === 'cache') return '使用已缓存的 AI 理解 · 本次不计次数';
+  if (source === 'local-limit') return '本次使用本地理解 · 不消耗 AI 额度';
+  return 'AI 调用未成功 · 已切换为本地理解';
 }
 
 function ellipsePerimeter(rx, ry) {
@@ -473,12 +485,15 @@ async function generate(rawTheme) {
   elements.results.setAttribute('aria-busy', 'true');
   elements.results.classList.add('is-generating');
   let theme;
+  let understandingSource = 'local-error';
   try {
     try {
-      theme = await requestThemeAnalysis(rawTheme);
+      const analysis = await requestThemeAnalysis(rawTheme);
+      theme = analysis.theme;
+      understandingSource = analysis.source;
     } catch (error) {
       console.info('AI theme analysis unavailable; local semantic fallback used', { type: error?.name ?? 'request_error' });
-      if (error?.code === 'ai_daily_limit') showToast('今日 AI 理解次数已用完，本次使用本地生成');
+      understandingSource = error?.code === 'ai_daily_limit' ? 'local-limit' : 'local-error';
       theme = createLocalTheme(rawTheme);
     }
     elements.button.textContent = '筛选候选中…';
@@ -492,13 +507,14 @@ async function generate(rawTheme) {
     const previousDesigns = state.generationHistory.get(historyKey) ?? [];
     const availableLibrary = state.library.filter(bead => Number(bead.count ?? 1) > 0);
     const previousVariant = previousDesigns.at(-1)?.layoutVariant;
-    const generationVariant = Number.isInteger(previousVariant) ? (previousVariant + 1) % 3 : seed % 3;
+    const generationVariant = Number.isInteger(previousVariant) ? (previousVariant + 1) % 4 : seed % 4;
     const designs = generateDesigns(theme, availableLibrary, { candidateCount: 36, seed, previousDesigns, wristSizeCm, generationVariant });
     state.currentTheme = theme;
     state.currentDesigns = designs;
     state.generationHistory.set(historyKey, [...previousDesigns, ...designs].slice(-60));
     renderResults(designs);
-    elements.status.textContent = '';
+    elements.status.dataset.source = understandingSource;
+    elements.status.textContent = understandingStatusText(understandingSource);
   } catch (error) {
     console.error('Design generation failed', { type: error?.name ?? 'generation_error' });
     elements.status.textContent = '未找到同时满足主题与结构的方案，请换一种描述或稍后重试。';
@@ -635,6 +651,8 @@ async function importLibrary(file) {
   state.customBeads = imported;
   state.deletedBeadIds = new Set(DEFAULT_BEADS.map(bead => bead.id));
   state.library = [...imported];
+  state.selectedBeadIds.clear();
+  state.libraryManageMode = false;
   localStorage.setItem(LIBRARY_MODE_KEY, 'imported');
   persistCustomBeads();
   persistDeletedBeads();
@@ -688,21 +706,26 @@ function deleteBead(beadId) {
   showToast(`已删除「${bead.name}」`);
 }
 
-function restoreDefaultBeads() {
-  const importedMode = localStorage.getItem(LIBRARY_MODE_KEY) === 'imported';
-  if (!state.deletedBeadIds.size && !importedMode) return;
-  const message = importedMode ? '恢复默认珠子库会移除当前导入的珠子，是否继续？' : '恢复此前删除的全部默认珠子吗？';
-  if (!window.confirm(message)) return;
-  state.deletedBeadIds.clear();
-  if (importedMode) {
-    state.customBeads = [];
-    persistCustomBeads();
-    localStorage.removeItem(LIBRARY_MODE_KEY);
-  }
-  persistDeletedBeads();
-  state.library = [...DEFAULT_BEADS, ...state.customBeads];
+function setLibraryManageMode(enabled) {
+  state.libraryManageMode = enabled;
+  if (!enabled) state.selectedBeadIds.clear();
   renderLibrary();
-  showToast('已恢复默认珠子库');
+}
+
+function deleteSelectedBeads() {
+  const selected = state.library.filter(bead => state.selectedBeadIds.has(bead.id));
+  if (!selected.length || !window.confirm(`确定删除选中的 ${selected.length} 种珠子吗？它们将不再参与新方案生成。`)) return;
+  const selectedIds = new Set(selected.map(bead => bead.id));
+  state.customBeads = state.customBeads.filter(bead => !selectedIds.has(bead.id));
+  for (const bead of selected) {
+    if (!bead.id.startsWith('custom-')) state.deletedBeadIds.add(bead.id);
+  }
+  state.library = state.library.filter(bead => !selectedIds.has(bead.id));
+  state.selectedBeadIds.clear();
+  persistCustomBeads();
+  persistDeletedBeads();
+  renderLibrary();
+  showToast(`已删除 ${selected.length} 种珠子`);
 }
 
 function resetLibraryFilters() {
@@ -722,7 +745,16 @@ function renderLibrary() {
     const haystack = `${bead.name} ${bead.family} ${bead.material} ${bead.shape}`.toLowerCase();
     return (!query || haystack.includes(query)) && (!material || bead.material === material) && (!shape || bead.shape === shape) && (!sizeFilter || bead.size === sizeFilter);
   });
-  elements.restoreDefaultBeads.classList.toggle('hidden', state.deletedBeadIds.size === 0);
+  const visibleIds = new Set(visible.map(bead => bead.id));
+  state.selectedBeadIds = new Set([...state.selectedBeadIds].filter(id => state.library.some(bead => bead.id === id)));
+  const selectedVisibleCount = [...state.selectedBeadIds].filter(id => visibleIds.has(id)).length;
+  elements.manageLibraryButton.classList.toggle('hidden', state.libraryManageMode);
+  elements.selectVisibleBeads.classList.toggle('hidden', !state.libraryManageMode);
+  elements.deleteSelectedBeads.classList.toggle('hidden', !state.libraryManageMode);
+  elements.finishLibraryManage.classList.toggle('hidden', !state.libraryManageMode);
+  elements.selectVisibleBeads.textContent = visible.length && selectedVisibleCount === visible.length ? '取消全选' : '全选当前';
+  elements.deleteSelectedBeads.textContent = state.selectedBeadIds.size ? `删除已选（${state.selectedBeadIds.size}）` : '删除已选';
+  elements.deleteSelectedBeads.disabled = state.selectedBeadIds.size === 0;
   elements.libraryCount.textContent = visible.length === state.library.length
     ? `共 ${state.library.length} 种`
     : `找到 ${visible.length} 种`;
@@ -730,8 +762,10 @@ function renderLibrary() {
   elements.beadGrid.classList.toggle('hidden', visible.length === 0);
   elements.beadGrid.innerHTML = visible.map(bead => {
     const stock = Math.max(0, Number(bead.count ?? 1) || 0);
-    const customTools = `<div class="bead-card-tools">${bead.id.startsWith('custom-') ? `<button type="button" data-edit-bead="${bead.id}">编辑</button>` : ''}<button type="button" data-delete-bead="${bead.id}">删除</button></div>`;
-    return `<article class="bead-card">${customTools}
+    const customTools = state.libraryManageMode
+      ? `<label class="bead-select"><input type="checkbox" data-select-bead="${bead.id}" ${state.selectedBeadIds.has(bead.id) ? 'checked' : ''}><span>选择</span></label>`
+      : `<div class="bead-card-tools">${bead.id.startsWith('custom-') ? `<button type="button" data-edit-bead="${bead.id}">编辑</button>` : ''}<button type="button" data-delete-bead="${bead.id}">删除</button></div>`;
+    return `<article class="bead-card${state.selectedBeadIds.has(bead.id) ? ' is-selected' : ''}">${customTools}
       <div class="bead-swatch">${libraryBeadMarkup(bead)}</div>
       <div class="bead-info"><h3>${escapeHtml(bead.name)} <small class="material-badge">${escapeHtml(bead.material)}</small></h3><p>${bead.size}mm · ${escapeHtml(bead.shape)} <span class="stock-count${stock === 0 ? ' is-empty' : ''}">库存 ${stock}</span></p></div>
     </article>`;
@@ -791,7 +825,18 @@ elements.materialFilter.addEventListener('change', renderLibrary);
 elements.shapeFilter.addEventListener('change', renderLibrary);
 elements.sizeFilter.addEventListener('change', renderLibrary);
 elements.resetFilters.addEventListener('click', resetLibraryFilters);
-elements.restoreDefaultBeads.addEventListener('click', restoreDefaultBeads);
+elements.manageLibraryButton.addEventListener('click', () => setLibraryManageMode(true));
+elements.finishLibraryManage.addEventListener('click', () => setLibraryManageMode(false));
+elements.deleteSelectedBeads.addEventListener('click', deleteSelectedBeads);
+elements.selectVisibleBeads.addEventListener('click', () => {
+  const visibleCheckboxes = [...elements.beadGrid.querySelectorAll('[data-select-bead]')];
+  const allSelected = visibleCheckboxes.length && visibleCheckboxes.every(input => state.selectedBeadIds.has(input.dataset.selectBead));
+  for (const input of visibleCheckboxes) {
+    if (allSelected) state.selectedBeadIds.delete(input.dataset.selectBead);
+    else state.selectedBeadIds.add(input.dataset.selectBead);
+  }
+  renderLibrary();
+});
 elements.exportLibraryButton.addEventListener('click', exportLibrary);
 elements.importLibraryButton.addEventListener('click', () => elements.importLibraryInput.click());
 elements.importLibraryInput.addEventListener('change', async () => {
@@ -814,6 +859,13 @@ elements.beadGrid.addEventListener('click', event => {
   const deleteButton = event.target.closest('[data-delete-bead]');
   if (editButton) openEditBeadDialog(editButton.dataset.editBead);
   if (deleteButton) deleteBead(deleteButton.dataset.deleteBead);
+});
+elements.beadGrid.addEventListener('change', event => {
+  const checkbox = event.target.closest('[data-select-bead]');
+  if (!checkbox) return;
+  if (checkbox.checked) state.selectedBeadIds.add(checkbox.dataset.selectBead);
+  else state.selectedBeadIds.delete(checkbox.dataset.selectBead);
+  renderLibrary();
 });
 elements.addBeadForm.addEventListener('submit', event => {
   event.preventDefault();
