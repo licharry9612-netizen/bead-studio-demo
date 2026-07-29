@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="输入一个灵感主题，生成三种珠串设计方案。">
   <title>珠串灵感生成器</title>
-  <link rel="stylesheet" href="./simple.css?v=75">
+  <link rel="stylesheet" href="./simple.css?v=84">
 </head>
 <body>
   <header class="site-header">
@@ -53,7 +53,7 @@
         <input id="library-search" type="search" placeholder="🔍  搜索颜色、名称或材质..." aria-label="搜索珠子">
         <select id="shape-filter" aria-label="按形状筛选">
           <option value="">全部形状</option>
-          <optgroup label="主珠类型"><option value="圆珠">圆珠</option><option value="米珠">米珠</option><option value="方形珠">方形珠</option><option value="菱形珠">菱形珠</option><option value="扁圆珠">扁圆珠</option><option value="管珠">管珠</option><option value="隔珠">隔珠</option></optgroup>
+          <optgroup label="主珠类型"><option value="圆珠">圆珠</option><option value="米珠">米珠</option><option value="方形珠">方形珠</option><option value="菱形珠">菱形珠</option><option value="扁圆珠">扁圆珠</option><option value="管珠">管珠</option></optgroup>
         </select>
         <select id="material-filter" aria-label="按材质筛选"><option value="">全部材质</option></select>
         <select id="size-filter" aria-label="按尺寸筛选"><option value="">全部尺寸</option><option value="2">2mm</option><option value="3">3mm</option><option value="4">4mm</option><option value="5">5mm</option><option value="6">6mm</option><option value="7">7mm</option><option value="8">8mm</option><option value="10">10mm</option><option value="12">12mm</option></select>
@@ -85,7 +85,7 @@
         <label class="field-wide">珠子名称（可选）<input name="name" maxlength="20" placeholder="留空将按颜色、材质和形状自动命名"></label>
         <label>颜色<span class="color-field"><input name="color" type="color" value="#E9E5DE"><span>选择颜色</span></span></label>
         <label>尺寸<select name="size" required><option value="2">2mm</option><option value="3">3mm</option><option value="4" selected>4mm</option><option value="5">5mm</option><option value="6">6mm</option><option value="7">7mm</option><option value="8">8mm</option><option value="10">10mm</option><option value="12">12mm</option></select></label>
-        <label>形状<select name="shape" required><option>圆珠</option><option>米珠</option><option>方形珠</option><option>菱形珠</option><option>扁圆珠</option><option>管珠</option><option>隔珠</option></select></label>
+        <label>形状<select name="shape" required><option>圆珠</option><option>米珠</option><option>方形珠</option><option>菱形珠</option><option>扁圆珠</option><option>管珠</option></select></label>
         <fieldset class="material-picker field-wide"><legend>材质</legend><div class="material-choice-grid" id="material-options"></div></fieldset>
         <label>库存（颗）<input name="count" type="number" min="0" max="9999" value="50"></label>
       </div>
@@ -95,6 +95,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=83"></script>
+  <script type="module" src="./app.js?v=84"></script>
 </body>
 </html>
