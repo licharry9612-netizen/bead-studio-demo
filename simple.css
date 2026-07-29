@@ -116,9 +116,6 @@ main { width: min(1120px, calc(100vw - 40px)); margin: 0 auto; padding: 42px 0 8
 .shape-tube::before { content: ""; position: absolute; inset: 13% calc(var(--bead-size) * .16); border-inline: 1px solid rgba(58,50,44,.12); border-radius: 2px; }
 .shape-square { width: calc(var(--bead-size) * .88); height: calc(var(--bead-size) * .88); border-radius: 20%; }
 .shape-diamond { width: calc(var(--bead-size) * .72); height: calc(var(--bead-size) * .72); border-radius: 14%; transform: translateY(2px) rotate(45deg); }
-.shape-spacer { width: calc(var(--bead-size) * .9); height: calc(var(--bead-size) * .44); border: 1px solid rgba(71,64,58,.2); border-radius: 50%; background: var(--bead-color); box-shadow: inset 0 1px 0 rgba(255,255,255,.58), inset 0 -1px 0 rgba(71,64,58,.12), 0 1px 2px rgba(71,64,58,.08); }
-.shape-spacer::before { content: ""; position: absolute; inset: 22% 43%; border-radius: 50%; background: rgba(71,64,58,.2); box-shadow: 0 0 0 1px rgba(255,255,255,.26); }
-.shape-spacer::after { top: 14%; left: 18%; width: 42%; height: 20%; }
 .bead-card-tools { position: absolute; top: 18px; right: 18px; z-index: 2; display: flex; gap: 5px; }
 .bead-card-tools button { min-height: 28px; padding: 3px 8px; border: 1px solid rgba(218,210,202,.9); border-radius: 8px; color: #8e8179; background: rgba(255,255,255,.9); font-size: .68rem; cursor: pointer; backdrop-filter: blur(5px); }
 .bead-card-tools button:hover { color: var(--accent); border-color: #cbbdb1; background: #fff; }
