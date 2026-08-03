@@ -21,7 +21,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { margin: 0; min-width: 320px; color: var(--text); background: var(--bg); font-size: var(--type-control); line-height: 1.55; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
@@ -184,9 +184,30 @@ main { width: min(1120px, calc(100vw - 40px)); margin: 0 auto; padding: 42px 0 8
 }
 
 @media (max-width: 560px) {
-  .filters { gap: 10px; }
-  .filters input, .filters select { width: 100%; flex: 1 1 100%; }
-  .bead-grid { grid-template-columns: 1fr; }
+  main { width: calc(100% - 20px); padding-top: 20px; padding-bottom: 56px; }
+  #page-library, #page-saved { padding-top: 0; }
+  .site-header { gap: 10px; padding: 12px 10px 10px; }
+  .brand { gap: 10px; padding-inline: 4px; }
+  .brand-mark { width: 27px; height: 27px; }
+  .tabs { gap: 3px; padding: 4px; border-radius: 12px; }
+  .tab { min-height: 40px; padding: 7px 5px; border-radius: 9px; font-size: .86rem; }
+  .filters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: stretch; gap: 8px; margin-bottom: 16px; }
+  .filters input, .filters select { width: 100%; min-width: 0; height: 44px; padding-inline: 12px; border-radius: 12px; font-size: .82rem; }
+  .filters input { grid-column: 1 / -1; }
+  .filters select { grid-column: span 2; }
+  .filters .add-bead-button, .filters .library-transfer, .filters .library-manage { grid-column: span 3; width: 100%; height: 42px; justify-content: center; padding-inline: 8px; }
+  .filters .library-batch { grid-column: span 2; width: 100%; height: 40px; padding-inline: 6px; font-size: .76rem; }
+  .library-count { grid-column: 1 / -1; justify-self: end; margin-top: 2px; }
+  .bead-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .bead-card { min-height: 174px; padding: 8px 8px 12px; border-radius: 15px; }
+  .bead-swatch { height: 96px; margin-bottom: 9px; border-radius: 12px; }
+  .bead-card-tools { top: 9px; right: 9px; }
+  .bead-card-tools button { min-height: 26px; padding: 2px 7px; font-size: .62rem; }
+  .bead-select { top: 9px; right: 9px; min-height: 27px; padding: 3px 7px; }
+  .bead-card h3 { gap: 4px; margin-bottom: 4px; font-size: .8rem; }
+  .bead-card p { gap: 4px; font-size: .7rem; }
+  .material-badge { min-height: 18px; padding: 1px 5px; font-size: .55rem; }
+  .stock-count { display: block; flex-basis: 100%; padding: 0; border-left: 0; }
 }
 .materials-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 0 9px; color: var(--text); font-size: .7rem; font-weight: 600; }
 .materials-heading small { color: var(--muted); font-size: .64rem; font-weight: 400; letter-spacing: .02em; }
