@@ -1,6 +1,6 @@
 import DEFAULT_BEADS from './lib/beads.js?v=84';
 import { createLocalTheme, normalizeTheme } from './lib/theme.js?v=84';
-import { generateDesigns } from './lib/designer.js?v=88';
+import { generateDesigns } from './lib/designer.js?v=90';
 import { hydrateSavedDesigns } from './lib/saved-designs.js';
 
 const THEME_ANALYSIS_ENDPOINT = window.location.hostname.endsWith('.github.io')
@@ -354,6 +354,27 @@ function materialDetails(bead, size, paintId) {
   }
   return `<ellipse cx="${-size * .1}" cy="${-size * .12}" rx="${size * .28}" ry="${size * .21}" fill="${soft}" fill-opacity=".46"/>`;
 }
+function beadSilhouetteMarkup(bead, size, attributes = '') {
+  if (bead.shape === '米珠') return `<ellipse rx="${size * .48}" ry="${size * .38}" ${attributes}/>`;
+  if (bead.shape === '扁圆珠') return `<ellipse rx="${size * .48}" ry="${size * .445}" ${attributes}/>`;
+  if (bead.shape === '管珠') return `<rect x="${-size * .61}" y="${-size * .36}" width="${size * 1.22}" height="${size * .72}" rx="${size * .18}" ${attributes}/>`;
+  if (bead.shape === '方形珠') return `<rect x="${-size * .44}" y="${-size * .44}" width="${size * .88}" height="${size * .88}" rx="${size * .08}" ${attributes}/>`;
+  if (bead.shape === '菱形珠') return `<rect x="${-size * .39}" y="${-size * .39}" width="${size * .78}" height="${size * .78}" rx="${size * .06}" transform="rotate(45)" ${attributes}/>`;
+  return `<circle r="${size * .5}" ${attributes}/>`;
+}
+
+function beadClipDefinition(bead, size, paintId) {
+  return `<clipPath id="${paintId}-clip">${beadSilhouetteMarkup(bead, size)}</clipPath>`;
+}
+
+function shapeDetails(bead, size) {
+  if (bead.shape === '扁圆珠') return `<ellipse rx="${size * .36}" ry="${size * .325}" fill="none" stroke="rgba(63,69,66,.12)" stroke-width="${Math.max(.42, size * .026)}"/>`;
+  if (bead.shape === '管珠') return `<path d="M ${-size * .43} ${-size * .25} V ${size * .25} M ${size * .43} ${-size * .25} V ${size * .25}" fill="none" stroke="rgba(45,50,48,.17)" stroke-width="${Math.max(.5, size * .038)}"/>`;
+  if (bead.shape === '方形珠') return `<rect x="${-size * .33}" y="${-size * .33}" width="${size * .66}" height="${size * .66}" rx="${size * .045}" fill="none" stroke="rgba(63,69,66,.1)" stroke-width="${Math.max(.4, size * .024)}"/>`;
+  if (bead.shape === '菱形珠') return `<rect x="${-size * .28}" y="${-size * .28}" width="${size * .56}" height="${size * .56}" rx="${size * .035}" transform="rotate(45)" fill="none" stroke="rgba(63,69,66,.11)" stroke-width="${Math.max(.4, size * .024)}"/>`;
+  return '';
+}
+
 function beadMarkup(bead, size, paintId, shadowId) {
   const paint = `url(#${paintId})`;
   const isPale = beadBrightness(bead.color) >= 222;
@@ -374,13 +395,9 @@ function beadMarkup(bead, size, paintId, shadowId) {
       : 1;
   const strokeWidth = isPale ? Math.max(.65, size * .045) : Math.max(.52, size * .032);
   const attributes = `fill="${paint}" fill-opacity="${bodyOpacity}" stroke="${stroke}" stroke-width="${strokeWidth}" filter="url(#${shadowId})"`;
-  const detail = materialDetails(bead, size, paintId);
-  if (bead.shape === '米珠') return `<ellipse rx="${size * 0.52}" ry="${size * 0.41}" ${attributes}/>${detail}`;
-  if (bead.shape === '扁圆珠') return `<ellipse rx="${size * 0.54}" ry="${size * 0.42}" ${attributes}/>${detail}`;
-  if (bead.shape === '管珠') return `<rect x="${-size * 0.68}" y="${-size * 0.28}" width="${size * 1.36}" height="${size * 0.56}" rx="${size * 0.16}" ${attributes}/>${detail}<path d="M ${-size * 0.5} ${-size * 0.18} V ${size * 0.18} M ${size * 0.5} ${-size * 0.18} V ${size * 0.18}" stroke="rgba(45,50,48,.18)" stroke-width="${Math.max(.55, size * .045)}"/>`;
-  if (bead.shape === '方形珠') return `<rect x="${-size * 0.45}" y="${-size * 0.45}" width="${size * 0.9}" height="${size * 0.9}" rx="${size * 0.08}" ${attributes}/>${detail}`;
-  if (bead.shape === '菱形珠') return `<rect x="${-size * 0.38}" y="${-size * 0.38}" width="${size * 0.76}" height="${size * 0.76}" rx="${size * 0.06}" transform="rotate(45)" ${attributes}/>${detail}`;
-  return `<circle r="${size * 0.5}" ${attributes}/>${detail}`;
+  const body = beadSilhouetteMarkup(bead, size, attributes);
+  const material = `<g clip-path="url(#${paintId}-clip)">${materialDetails(bead, size, paintId)}</g>`;
+  return `${body}${material}${shapeDetails(bead, size)}`;
 }
 
 export function renderBraceletSvg(pattern) {
@@ -393,15 +410,18 @@ export function renderBraceletSvg(pattern) {
   const ry = 66;
   const arc = buildArcTable(rx, ry);
   const prefix = `bracelet-${++svgRenderCounter}`;
-  const uniqueBeads = [...new Map(pattern.map(bead => [bead.id, bead])).values()];
-  const paintIds = new Map(uniqueBeads.map((bead, index) => [bead.id, `${prefix}-paint-${index}`]));
-  const materialDefs = uniqueBeads.map(bead => materialDefinition(bead, paintIds.get(bead.id))).join('');
-  const shadowId = `${prefix}-contact-shadow`;
-  const defs = `<defs>${materialDefs}<filter id="${shadowId}" x="-50%" y="-50%" width="200%" height="220%"><feDropShadow dx="0" dy="1.05" stdDeviation=".9" flood-color="#4B4742" flood-opacity=".14"/></filter></defs>`;
-  const longitudinalFactor = bead => ({ '管珠': 1.36, '米珠': 1.04, '扁圆珠': 1.08, '菱形珠': 1.08, '方形珠': 0.9 }[bead.shape] ?? 1);
+  const longitudinalFactor = bead => ({ '管珠': 1.22, '米珠': .96, '扁圆珠': .96, '菱形珠': 1.1, '方形珠': .88 }[bead.shape] ?? 1);
   const physicalWidths = pattern.map(bead => bead.size * longitudinalFactor(bead));
   const availableForBeads = Math.max(1, arc.total - gap * pattern.length);
   const scale = Math.min(3.45, availableForBeads / physicalWidths.reduce((sum, value) => sum + value, 0));
+  const uniqueBeads = [...new Map(pattern.map(bead => [bead.id, bead])).values()];
+  const paintIds = new Map(uniqueBeads.map((bead, index) => [bead.id, `${prefix}-paint-${index}`]));
+  const materialDefs = uniqueBeads.map(bead => {
+    const paintId = paintIds.get(bead.id);
+    return `${materialDefinition(bead, paintId)}${beadClipDefinition(bead, bead.size * scale, paintId)}`;
+  }).join('');
+  const shadowId = `${prefix}-contact-shadow`;
+  const defs = `<defs>${materialDefs}<filter id="${shadowId}" x="-50%" y="-50%" width="200%" height="220%"><feDropShadow dx="0" dy="1.05" stdDeviation=".9" flood-color="#4B4742" flood-opacity=".14"/></filter></defs>`;
   const displayWidths = physicalWidths.map(value => value * scale);
   const distributedGap = Math.max(gap, (arc.total - displayWidths.reduce((sum, value) => sum + value, 0)) / pattern.length);
   const trackWidths = displayWidths.map(value => value + distributedGap);
@@ -527,17 +547,13 @@ async function generate(rawTheme) {
   }
 }
 
-const SHAPE_CLASSES = {
-  '圆珠': 'round', '米珠': 'rice', '方形珠': 'square',
-  '菱形珠': 'diamond', '扁圆珠': 'flat', '管珠': 'tube'
-};
 
 function libraryBeadMarkup(bead) {
   const size = Math.max(28, Math.min(62, bead.size * 8));
   const prefix = `preview-${++svgRenderCounter}`;
   const paintId = `${prefix}-paint`;
   const shadowId = `${prefix}-shadow`;
-  const defs = `<defs>${materialDefinition(bead, paintId)}<filter id="${shadowId}" x="-50%" y="-50%" width="200%" height="220%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.15" flood-color="#4B4742" flood-opacity=".16"/></filter></defs>`;
+  const defs = `<defs>${materialDefinition(bead, paintId)}${beadClipDefinition(bead, size, paintId)}<filter id="${shadowId}" x="-50%" y="-50%" width="200%" height="220%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.15" flood-color="#4B4742" flood-opacity=".16"/></filter></defs>`;
   const preview = beadMarkup(bead, size, paintId, shadowId);
   return `<svg class="bead-preview-svg" viewBox="-42 -42 84 84" aria-hidden="true">${defs}<g>${preview}</g></svg>`;
 }
